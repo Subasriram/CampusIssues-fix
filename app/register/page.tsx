@@ -331,6 +331,26 @@ export default function RegisterPage() {
               )}
 
             </div>
+            {/* Phone Number */}
+<div>
+  <label className="mb-2 block text-sm font-semibold text-slate-700">
+    Phone Number{" "}
+    <span className="text-red-500">*</span>
+  </label>
+
+  <input
+    type="tel"
+    placeholder="+919876543210"
+    {...register("phone")}
+    className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+  />
+
+  {errors.phone && (
+    <p className="mt-1 text-sm text-red-600">
+      {errors.phone.message}
+    </p>
+  )}
+</div>
 
             {/* Password + Confirm Password */}
             <div className="grid gap-5 md:grid-cols-2">

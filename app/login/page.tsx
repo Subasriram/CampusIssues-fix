@@ -1,6 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import {
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  ConfirmationResult,
+} from "firebase/auth";
+
+import { auth } from "../lib/firebase";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useDispatch } from "react-redux";
@@ -19,10 +26,31 @@ export default function LoginPage() {
   const dispatch = useDispatch();
   const router = useRouter();
 
+  // -----------------------------
+  // Toast
+  // -----------------------------
+
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
+
+  // -----------------------------
+  // Firebase OTP states
+  // -----------------------------
+
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+
+  const [confirmationResult, setConfirmationResult] =
+    useState<ConfirmationResult | null>(null);
+
+  const recaptchaVerifierRef =
+    useRef<RecaptchaVerifier | null>(null);
+
+  // -----------------------------
+  // React Hook Form
+  // -----------------------------
 
   const {
     register,
@@ -31,6 +59,10 @@ export default function LoginPage() {
   } = useForm<LoginFormData>({
     resolver: yupResolver(loginSchema),
   });
+
+  // -----------------------------
+  // Toast function
+  // -----------------------------
 
   const showToast = (
     message: string,
@@ -45,6 +77,117 @@ export default function LoginPage() {
       setToast(null);
     }, 3000);
   };
+
+  // -----------------------------
+  // Send OTP
+  // -----------------------------
+
+  const sendOTP = async () => {
+    try {
+      if (!phone) {
+        showToast(
+          "Please enter your phone number",
+          "error"
+        );
+        return;
+      }
+
+      if (!recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current =
+          new RecaptchaVerifier(
+            auth,
+            "recaptcha-container",
+            {
+              size: "normal",
+            }
+          );
+      }
+
+      const confirmation =
+        await signInWithPhoneNumber(
+          auth,
+          phone,
+          recaptchaVerifierRef.current
+        );
+
+      setConfirmationResult(confirmation);
+
+      showToast(
+        "OTP sent successfully",
+        "success"
+      );
+    } catch (error) {
+      console.error("OTP error:", error);
+
+      showToast(
+        "Failed to send OTP. Please check your phone number.",
+        "error"
+      );
+    }
+  };
+
+  // -----------------------------
+  // Verify OTP
+  // -----------------------------
+
+  const verifyOTP = async () => {
+    try {
+      if (!confirmationResult) {
+        showToast(
+          "Please send OTP first",
+          "error"
+        );
+        return;
+      }
+
+      if (!otp) {
+        showToast(
+          "Please enter the OTP",
+          "error"
+        );
+        return;
+      }
+
+      const result =
+        await confirmationResult.confirm(otp);
+
+      console.log(
+        "Firebase user:",
+        result.user
+      );
+
+      showToast(
+        "Phone login successful",
+        "success"
+      );
+
+      // Firebase user information
+      console.log(
+        "UID:",
+        result.user.uid
+      );
+
+      console.log(
+        "Phone:",
+        result.user.phoneNumber
+      );
+
+    } catch (error) {
+      console.error(
+        "OTP verification error:",
+        error
+      );
+
+      showToast(
+        "Invalid OTP",
+        "error"
+      );
+    }
+  };
+
+  // -----------------------------
+  // Existing username/password login
+  // -----------------------------
 
   const onSubmit = (data: LoginFormData) => {
     // Get students registered in localStorage
@@ -97,6 +240,10 @@ export default function LoginPage() {
     }, 1000);
   };
 
+  // -----------------------------
+  // UI
+  // -----------------------------
+
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
 
@@ -142,7 +289,7 @@ export default function LoginPage() {
 
         </div>
 
-        {/* Form */}
+        {/* Login Form */}
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="mt-7 space-y-5"
@@ -153,7 +300,9 @@ export default function LoginPage() {
 
             <label className="mb-2 block text-sm font-semibold text-slate-700">
               Username{" "}
-              <span className="text-red-500">*</span>
+              <span className="text-red-500">
+                *
+              </span>
             </label>
 
             <input
@@ -176,7 +325,9 @@ export default function LoginPage() {
 
             <label className="mb-2 block text-sm font-semibold text-slate-700">
               Password{" "}
-              <span className="text-red-500">*</span>
+              <span className="text-red-500">
+                *
+              </span>
             </label>
 
             <input
@@ -194,13 +345,89 @@ export default function LoginPage() {
 
           </div>
 
-          {/* Login Button */}
+          {/* Username / Password Login */}
           <button
             type="submit"
             className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-5 py-3.5 font-bold text-white shadow-lg transition hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
           >
             Login
           </button>
+
+          {/* ----------------------------- */}
+          {/* Phone OTP Login */}
+          {/* ----------------------------- */}
+
+          <div className="mt-6 border-t border-slate-200 pt-6">
+
+            <p className="mb-4 text-center text-sm font-semibold text-slate-500">
+              Or login with phone number
+            </p>
+
+            {/* Phone Number */}
+            <div>
+
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Phone Number
+              </label>
+
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) =>
+                  setPhone(e.target.value)
+                }
+                placeholder="+919876543210"
+                className="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              />
+
+            </div>
+
+            {/* Send OTP */}
+            <button
+              type="button"
+              onClick={sendOTP}
+              className="mt-4 w-full rounded-xl bg-slate-900 px-5 py-3.5 font-bold text-white shadow-lg transition hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
+            >
+              Send OTP
+            </button>
+
+            {/* reCAPTCHA */}
+            <div
+              id="recaptcha-container"
+              className="mt-4 flex justify-center"
+            />
+
+            {/* OTP Input */}
+            <div className="mt-5">
+
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Enter OTP
+              </label>
+
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={otp}
+                onChange={(e) =>
+                  setOtp(e.target.value)
+                }
+                placeholder="Enter 6-digit OTP"
+                className="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-center tracking-[0.4em] text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              />
+
+              {/* Verify OTP */}
+              <button
+                type="button"
+                onClick={verifyOTP}
+                className="mt-4 w-full rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-5 py-3.5 font-bold text-white shadow-lg transition hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
+              >
+                Verify OTP
+              </button>
+
+            </div>
+
+          </div>
 
         </form>
 

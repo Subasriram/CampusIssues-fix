@@ -32,6 +32,13 @@ export const registerSchema = yup.object({
     .trim()
     .min(3, "Username must be at least 3 characters")
     .required("Username is required"),
+    phone: yup
+  .string()
+  .required("Phone number is required")
+  .matches(
+    /^\+91[6-9]\d{9}$/,
+    "Enter a valid Indian phone number"
+  ),
 
   password: yup
     .string()
